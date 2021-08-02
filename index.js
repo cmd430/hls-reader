@@ -57,8 +57,8 @@ class HLSInternal extends EventEmitter {
 
       return parser.manifest
     } catch (error) {
-      this.reject(error)
-      return
+      if (this.lastSegment) return this.stop()
+      return this.reject(error)
     }
   }
 
