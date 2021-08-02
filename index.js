@@ -27,7 +27,6 @@ class HLSInternal extends EventEmitter {
       this.resolve = resolve
       this.reject = reject
 
-      this.emit('start')
       this.refreshPlaylist()
     })
   }
@@ -76,7 +75,8 @@ class HLSInternal extends EventEmitter {
     this.refreshHandle = setTimeout(() => { this.refreshPlaylist() }, interval * 1000)
 
     let newSegments = []
-    if (this.lastSegment) {
+    if (!this.lastSegment) {
+      this.emit('start')
       newSegments = segments.slice(segments.length - Number.MAX_SAFE_INTEGER)
     } else {
       const index = segments.map(e => e.uri).indexOf(this.lastSegment)
