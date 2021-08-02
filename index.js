@@ -11,6 +11,9 @@ class HLSInternal extends EventEmitter {
     this.playlistURL = options.playlistURL ?? null
     this.quality = options.quality ?? 'best'
 
+    this.totalSegments = 0
+    this.totalDuration = 0
+
     this.lastSegment
     this.timeoutHandle
     this.refreshHandle
@@ -93,8 +96,14 @@ class HLSInternal extends EventEmitter {
     this.lastSegment = newSegments[newSegments.length - 1].uri
 
     for (const newSegment of newSegments) {
+      this.totalSegments += 1
+      this.totalDuration += newSegment.segment.duration
+
       this.emit('uri', newSegment.uri)
-      this.emit('segment', newSegment.segment)
+      this.emit('segment', new Object({
+        segment: this.totalSegments,
+        ...newSegment.segment
+      }))
     }
 
     // Timeout after X seconds without new segment
@@ -108,7 +117,10 @@ class HLSInternal extends EventEmitter {
       clearTimeout(this.refreshHandle)
     }
 
-    this.emit('finish')
+    this.emit('finish', {
+      totalSegments: this.totalSegments,
+      totalDuration: this.totalDuration
+    })
     this.resolve()
   }
 
@@ -136,7 +148,7 @@ class HLS extends EventEmitter {
     this.HLSInternal.on('m3u8', playlist => this.emit('m3u8', playlist))
     this.HLSInternal.on('segment', segment => this.emit('segment', segment))
     this.HLSInternal.on('uri', uri => this.emit('uri', uri))
-    this.HLSInternal.on('finish', () => this.emit('finish'))
+    this.HLSInternal.on('finish', info => this.emit('finish', info))
   }
 
   /**

@@ -17,12 +17,18 @@ async function test () {
   hls.on('uri', uri => {
     console.log('New segment URI', uri)
   })
-  hls.once('finish', () => {
-    console.log('Finished reading HLS manifest')
+  hls.once('finish', info => {
+    console.log('Finished reading HLS manifest; Found', info.totalSegments, 'Segments with a runtime of', info.totalDuration, 'seconds')
   })
 
   try {
+    setTimeout(() => {
+      hls.stop()
+    }, 14 * 1000)
+
     await hls.start()
+
+    console.log('done')
   } catch (err) {
     console.error(err)
   }
