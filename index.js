@@ -38,6 +38,7 @@ class HLSInternal extends EventEmitter {
     try {
       const response = await miniget(this.playlistURL).text()
       const parser = new m3u8.Parser()
+      const prefetch = []
 
       parser.addTagMapper({
         expression: /#EXTINF/,
@@ -48,13 +49,25 @@ class HLSInternal extends EventEmitter {
       })
       parser.addParser({
         expression: /^#EXT-SEG-TITLE/,
-        customType: 'isAd',
+        customType: 'ad',
         dataParser(line) {
           const segmentTitle = line.split(':')[1]
           return !(segmentTitle === '' || segmentTitle === 'live')
         },
         segment: true
       })
+      parser.addParser({
+        expression: /^#EXT-X-TWITCH-PREFETCH/,
+        customType: 'prefetch',
+        dataParser(line) {
+          prefetch.push({
+            prefetch: true,
+            uri: line.slice(23)
+          })
+          return prefetch
+        }
+      })
+
       parser.push(response)
       parser.end()
 
@@ -90,22 +103,27 @@ class HLSInternal extends EventEmitter {
       uri: new URL(segment.uri, this.playlistURL).href,
       segment
     }))
+    const prefetch = playlist.custom?.prefetch?.map(prefetch => new Object({
+      uri: new URL(prefetch.uri, this.playlistURL).href,
+      segment: prefetch
+    })) ?? []
+    const allSegments = segments.concat(prefetch)
 
     this.refreshHandle = setTimeout(() => { this.refreshPlaylist() }, interval * 1000)
 
     let newSegments = []
     if (!this.lastSegment) {
       this.emit('start')
-      newSegments = segments.slice(segments.length - Number.MAX_SAFE_INTEGER)
+      newSegments = allSegments.slice(allSegments.length - Number.MAX_SAFE_INTEGER)
     } else {
-      const index = segments.map(e => e.uri).indexOf(this.lastSegment)
+      const index = allSegments.map(e => e.uri).indexOf(this.lastSegment)
 
       if (index < 0) {
-        newSegments = segments
-      } else if (index === segments.length - 1) {
+        newSegments = allSegments
+      } else if (index === allSegments.length - 1) {
         return
       } else {
-        newSegments = segments.slice(index + 1)
+        newSegments = allSegments.slice(index + 1)
       }
     }
 
@@ -113,7 +131,7 @@ class HLSInternal extends EventEmitter {
 
     for (const newSegment of newSegments) {
       this.totalSegments += 1
-      this.totalDuration += newSegment.segment.duration
+      this.totalDuration += newSegment.segment.duration ?? 0
       this.emit('uri', newSegment.uri)
       this.emit('segment', new Object({
         segment: this.totalSegments,
