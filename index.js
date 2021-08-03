@@ -37,8 +37,24 @@ class HLSInternal extends EventEmitter {
   async loadPlaylist () {
     try {
       const response = await miniget(this.playlistURL).text()
-
       const parser = new m3u8.Parser()
+
+      parser.addTagMapper({
+        expression: /#EXTINF/,
+        map(line) {
+          return `#EXT-SEG-TITLE:${line.split(',')[1]}`;
+        },
+        segment: true
+      })
+      parser.addParser({
+        expression: /^#EXT-SEG-TITLE/,
+        customType: 'isAd',
+        dataParser(line) {
+          const segmentTitle = line.split(':')[1]
+          return !(segmentTitle === '' || segmentTitle === 'live')
+        },
+        segment: true
+      })
       parser.push(response)
       parser.end()
 
@@ -98,11 +114,10 @@ class HLSInternal extends EventEmitter {
     for (const newSegment of newSegments) {
       this.totalSegments += 1
       this.totalDuration += newSegment.segment.duration
-
       this.emit('uri', newSegment.uri)
       this.emit('segment', new Object({
         segment: this.totalSegments,
-        ...newSegment.segment
+        ...Object.assign({}, ...(o => [].concat(...Object.keys(o).map(k => typeof o[k] === 'object' ? (o[k]) : ({[k]: o[k]}))))(newSegment.segment)) // flatten object
       }))
     }
 
