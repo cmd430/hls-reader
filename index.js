@@ -72,14 +72,24 @@ class HLSInternal extends EventEmitter {
       parser.end()
 
       if (parser.manifest.playlists) {
-        if (this.quality === 'best') {
-          this.playlistURL = parser.manifest.playlists.reduce((highestBandwidth, playlist) => highestBandwidth.attributes.BANDWIDTH > playlist.attributes.BANDWIDTH ? highestBandwidth : playlist)?.uri ?? ''
-        } else {
-          if (this.quality === 'source') this.quality = 'chunked'
-          if (this.quality === 'audio') this.quality = 'audio_only'
-
-          this.playlistURL = parser.manifest.playlists.find(playlist => playlist.attributes.VIDEO.includes(this.quality))?.uri ?? ''
+        let selectedPlaylist
+        const qualityMappings = {
+          source: 'chunked',
+          audio: 'audio_only'
         }
+
+        if (this.quality === 'best') {
+          selectedPlaylist = parser.manifest.playlists.reduce((highestBandwidth, playlist) => highestBandwidth.attributes.BANDWIDTH > playlist.attributes.BANDWIDTH ? highestBandwidth : playlist)
+        } else {
+          selectedPlaylist = parser.manifest.playlists.find(playlist => playlist.attributes.VIDEO.includes(qualityMappings[this.quality] ?? this.quality))
+        }
+        if (selectedPlaylist) {
+          const selectedQuality = Object.keys(qualityMappings).find(key => qualityMappings[key] === selectedPlaylist.attributes.VIDEO) ?? selectedPlaylist.attributes.VIDEO
+
+          this.emit('quality', selectedQuality)
+        }
+
+        this.playlistURL = selectedPlaylist?.uri ?? ''
 
         return await this.loadPlaylist()
       }
@@ -180,6 +190,7 @@ class HLS extends EventEmitter {
 
     this.HLSInternal.on('start', () => this.emit('start'))
     this.HLSInternal.on('m3u8', playlist => this.emit('m3u8', playlist))
+    this.HLSInternal.on('quality', quality => this.emit('quality', quality))
     this.HLSInternal.on('segment', segment => this.emit('segment', segment))
     this.HLSInternal.on('uri', uri => this.emit('uri', uri))
     this.HLSInternal.on('finish', info => this.emit('finish', info))
