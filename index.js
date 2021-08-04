@@ -14,6 +14,9 @@ class HLSInternal extends EventEmitter {
     this.totalSegments = 0
     this.totalDuration = 0
 
+    this.retires = 0
+    this.maxRetries = 5
+
     this.lastSegment
     this.timeoutHandle
     this.refreshHandle
@@ -98,7 +101,17 @@ class HLSInternal extends EventEmitter {
 
       return parser.manifest
     } catch (error) {
-      if (this.lastSegment) return this.stop()
+      if (this.lastSegment) {
+        if (this.retires < this.maxRetries && (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT')) {
+          this.retires += 1
+          this.emit('debug', `Retrying m3u8. attempt '${this.retires}/${this.maxRetries}'`)
+
+          return this.loadPlaylist()
+        }
+        this.emit('debug', `Error parsing m3u8 ${error.message}`)
+
+        return this.stop()
+      }
       return this.reject(error)
     }
   }
@@ -108,6 +121,7 @@ class HLSInternal extends EventEmitter {
 
     if (!playlist) return
 
+    this.retires = 0
     this.emit('m3u8', (({ segments, ...o }) => o)(playlist))
 
     const interval = playlist.targetDuration || HLS.playlistRefreshInterval
@@ -197,6 +211,7 @@ class HLS extends EventEmitter {
     this.HLSInternal.on('segment', segment => this.emit('segment', segment))
     this.HLSInternal.on('uri', uri => this.emit('uri', uri))
     this.HLSInternal.on('finish', info => this.emit('finish', info))
+    this.HLSInternal.on('debug', debug => this.emit('debug', debug))
   }
 
   /**
