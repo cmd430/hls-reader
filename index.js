@@ -72,6 +72,8 @@ class HLSInternal extends EventEmitter {
       parser.end()
 
       if (parser.manifest.playlists) {
+        this.emit('m3u8Master', parser.manifest)
+
         let selectedPlaylist
         const qualityMappings = {
           source: 'chunked',
@@ -189,6 +191,7 @@ class HLS extends EventEmitter {
     this.HLSInternal = new HLSInternal(options)
 
     this.HLSInternal.on('start', () => this.emit('start'))
+    this.HLSInternal.on('m3u8Master', masterPlaylist => this.emit('m3u8Master', masterPlaylist))
     this.HLSInternal.on('m3u8', playlist => this.emit('m3u8', playlist))
     this.HLSInternal.on('quality', quality => this.emit('quality', quality))
     this.HLSInternal.on('segment', segment => this.emit('segment', segment))
