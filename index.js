@@ -102,7 +102,7 @@ class HLSInternal extends EventEmitter {
     const segments = playlist.segments?.map(segment => new Object({
       uri: new URL(segment.uri, this.playlistURL).href,
       segment
-    }))
+    })) ?? []
     const prefetch = playlist.custom?.prefetch?.map(prefetch => new Object({
       uri: new URL(prefetch.uri, this.playlistURL).href,
       segment: prefetch
@@ -121,6 +121,7 @@ class HLSInternal extends EventEmitter {
       if (index < 0) {
         newSegments = allSegments
       } else if (index === allSegments.length - 1) {
+        // no new segments
         return
       } else {
         newSegments = allSegments.slice(index + 1)
