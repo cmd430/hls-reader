@@ -104,6 +104,10 @@ class HLSInternal extends EventEmitter {
       if (this.lastSegment) {
         if (this.retires < this.maxRetries && (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT')) {
           this.retires += 1
+
+          if (this.timeoutHandle) clearTimeout(this.timeoutHandle) // make sure we dont timeout while retrying
+
+          await new Promise(r => setTimeout(r, Math.max(1000, 550 * this.retires)))
           this.emit('debug', `Retrying m3u8. attempt '${this.retires}/${this.maxRetries}'`)
 
           return this.loadPlaylist()
