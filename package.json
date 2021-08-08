@@ -1,6 +1,6 @@
 {
   "name": "hls-reader",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "Parse Live m3u8 manifest",
   "main": "index.js",
   "scripts": {

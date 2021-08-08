@@ -24,6 +24,7 @@ class HLSInternal extends EventEmitter {
     this.playlistRefreshInterval = Number(5)
     this.timeoutDuration = Number(60)
 
+    this.stopped = false
     this.resolve
     this.reject
   }
@@ -99,8 +100,11 @@ class HLSInternal extends EventEmitter {
         return await this.loadPlaylist()
       }
 
+      if (this.stopped) return
+      
       return parser.manifest
     } catch (error) {
+      if (this.stopped) return
       if (this.lastSegment) {
         if (this.retires < this.maxRetries && (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT')) {
           this.retires += 1
@@ -123,7 +127,7 @@ class HLSInternal extends EventEmitter {
   async refreshPlaylist () {
     const playlist = await this.loadPlaylist()
 
-    if (!playlist) return
+    if (this.stopped || !playlist) return
 
     this.retires = 0
     this.emit('m3u8', (({ segments, ...o }) => o)(playlist))
@@ -180,7 +184,8 @@ class HLSInternal extends EventEmitter {
     if (this.refreshHandle) {
       clearTimeout(this.refreshHandle)
     }
-
+    
+    this.stopped = true
     this.emit('finish', {
       totalSegments: this.totalSegments,
       totalDuration: this.totalDuration
